@@ -1,0 +1,582 @@
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+
+# BACA EXCEL
+df_w2v = pd.read_excel(
+    "hasil_word2vec.xlsx"
+)
+
+df_bert = pd.read_excel(
+    "hasil_indobert.xlsx"
+)
+
+
+# SEARCH
+def search_top(df,
+               query,
+               sim_col="Similarity",
+               doc_col="Top_Document"):
+
+    data = df[
+        df["Query"].str.contains(
+            query,
+            case=False,
+            na=False
+        )
+    ]
+
+    if data.empty:
+        return None, 0
+
+    top = data.sort_values(
+        sim_col,
+        ascending=False
+    ).iloc[0]
+
+    return top[doc_col], top[sim_col]
+
+
+# SIDEBAR
+st.set_page_config(
+    page_title="Semantic Similarity",
+    layout="wide"
+)
+
+# ================= CSS =================
+st.markdown("""
+<style>
+
+/* Sidebar */
+section[data-testid="stSidebar"]{
+    background: linear-gradient(
+        180deg,
+        #1E1E2F,
+        #2D2D44
+    );
+}
+
+/* Semua teks sidebar */
+section[data-testid="stSidebar"] *{
+    color:white !important;
+}
+
+/* Hover menu */
+div[role="radiogroup"] label:hover{
+    background-color:#FF69B4;
+    border-radius:10px;
+}
+
+/* Judul */
+h1{
+    font-size:42px !important;
+}
+
+h2{
+    font-size:32px !important;
+}
+
+h3{
+    font-size:26px !important;
+}
+
+/* Metric */
+[data-testid="stMetricValue"]{
+    font-size:32px !important;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# ================= SIDEBAR =================
+
+st.sidebar.markdown(
+    """
+    <h3 style='text-align:center;'>
+    📊 Dashboard Kemiripan Semantik
+    </h3>
+    """,
+    unsafe_allow_html=True
+)
+
+# Logo (opsional)
+# st.sidebar.image("logo.png", use_container_width=True)
+
+st.sidebar.markdown("---")
+
+menu = st.sidebar.radio(
+    "Navigasi",
+    [
+        "Dashboard",
+        "Pencarian",
+        "Hasil",
+        "Download"
+    ]
+)
+
+st.sidebar.markdown("---")
+
+# Statistik
+st.sidebar.info(
+    """
+    **Sistem Analisis Kemiripan Semantik**
+
+    Metode:
+    -  IndoBERT
+    -  Word2Vec
+    """
+)
+
+#DASHBOARD
+if menu == "Dashboard":
+
+    st.title("📊Dashboard Kemiripan Semantik")
+
+    st.write(
+        "Sistem perbandingan IndoBERT vs Word2Vec dalam menghitung kemiripan semantik berita online tentang Pemilu 2024 dan IKP 2024."
+    )
+
+    st.divider()
+
+# Halaman Pencarian
+elif menu == "Pencarian":
+
+    st.header(
+        "Semantic Similarity Checker"
+    )
+
+    query = st.text_input(
+        "Masukkan Query"
+    )
+
+    if st.button("Periksa"):
+
+        bert_doc, bert_score = search_top(
+            df_bert,
+            query
+        )
+
+        w2v_doc, w2v_score = search_top(
+            df_w2v,
+            query
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("IndoBERT")
+            st.write(bert_doc)
+            st.write(bert_score)
+
+        with col2:
+            st.subheader("Word2Vec")
+            st.write(w2v_doc)
+            st.write(w2v_score)
+
+    st.divider()
+
+# Download
+elif menu == "Download":
+
+    st.title("⬇️ Download File")
+
+    st.markdown("### 📊 File Excel")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+
+        with open("hasil_indobert.xlsx", "rb") as file:
+            st.download_button(
+                "⬇️ Hasil IndoBERT",
+                file,
+                "hasil_indobert.xlsx"
+            )
+
+        with open("hasil_indobert_mirip_dan_tidakmirip.xlsx", "rb") as file:
+            st.download_button(
+                "⬇️ Hasil IndoBERT Mirip dan Paling Tidak Mirip",
+                file,
+                "hasil_indobert_mirip_dan_tidakmirip.xlsx"
+            )
+
+    with col2:
+
+        with open("hasil_word2vec.xlsx", "rb") as file:
+            st.download_button(
+                "⬇️ Hasil Word2Vec",
+                file,
+                "hasil_word2vec.xlsx"
+            )
+
+        with open("hasil_word2vec_mirip_dan_tidakmirip.xlsx", "rb") as file:
+            st.download_button(
+                "⬇️ Hasil Word2Vec Mirip dan Paling Tidak Mirip",
+                file,
+                "hasil_word2vec_mirip_dan_tidakmirip.xlsx"
+            )
+
+    st.divider()
+
+    st.markdown("### 📄 File PDF")
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+
+        with open("Indobert.pdf", "rb") as file:
+            st.download_button(
+                "⬇️ Expert Judgement IndoBERT",
+                file,
+                "Indobert.pdf",
+                mime="application/pdf"
+            )
+
+    with col4:
+
+        with open("Word2vec.pdf", "rb") as file:
+            st.download_button(
+                "⬇️ Expert Judgement Word2Vec",
+                file,
+                "Word2vec.pdf",
+                mime="application/pdf"
+            )
+    
+    st.divider()
+
+# Dashboard
+elif menu == "Hasil":
+
+    st.header("Hasil")
+
+    st.subheader("Perbandingan Similarity IndoBERT vs Word2Vec")
+
+    st.divider()
+
+# Rata-rata
+col1, col2 = st.columns(2)
+
+col1.metric(
+    "Rata-rata IndoBERT",
+    round(df_bert["Similarity"].mean(), 4)
+)
+
+col2.metric(
+    "Rata-rata Word2Vec",
+    round(df_w2v["Similarity"].mean(), 4)
+)
+
+st.divider()
+
+# Grafik
+fig = go.Figure()
+
+# IndoBERT
+fig.add_trace(
+    go.Scatter(
+        x=df_bert["Query_Index"],
+        y=df_bert["Similarity"],
+        mode="lines+markers",
+        name="IndoBERT",
+        line=dict(color="#FF69B4"),
+        marker=dict(color="#FF69B4")
+    )
+)
+
+# Word2Vec
+fig.add_trace(
+    go.Scatter(
+        x=df_w2v["Query_Index"],
+        y=df_w2v["Similarity"],
+        mode="lines+markers",
+        name="Word2Vec",
+        line=dict(color="#36A2EB"),
+        marker=dict(color="#36A2EB")
+    )
+)
+
+fig.update_layout(
+    title="Perbandingan Similarity",
+    xaxis_title="Query Index",
+    yaxis_title="Similarity",
+    hovermode="x unified"
+)
+
+st.plotly_chart(
+    fig,
+    use_container_width=True
+)
+
+st.divider()
+
+# Grafik Similarity
+st.subheader("Jumlah Indikator Muncul - IndoBERT")
+
+indo_labels = [
+    'Indikator 1','Indikator 4','Indikator 8','Indikator 11','Indikator 12',
+    'Indikator 19','Indikator 20','Indikator 21','Indikator 22','Indikator 28',
+    'Indikator 29','Indikator 30','Indikator 31','Indikator 33','Indikator 34',
+    'Indikator 35','Indikator 36','Indikator 37','Indikator 40','Indikator 41',
+    'Indikator 43','Indikator 47','Indikator 48','Indikator 49','Indikator 50',
+    'Indikator 54','Indikator 44','Indikator 57','Indikator 58','Indikator 60',
+    'Indikator 61'
+]
+
+indo_data = [
+    10,1,9,28,77,5,8,1,14,2,5,4,4,61,48,1,1,4,
+    25,21,106,2,57,2,52,2,6,2,2,30,2
+]
+
+df_indo = pd.DataFrame({
+    "Indikator": indo_labels,
+    "Jumlah": indo_data
+})
+
+fig_indo = px.bar(
+    df_indo,
+    x="Indikator",
+    y="Jumlah",
+    text="Jumlah",
+    title="Grafik IndoBERT",
+    color_discrete_sequence=["#FF69B4"]
+)
+
+fig_indo.update_layout(
+    height=700,
+    xaxis_tickangle=-90
+)
+
+st.plotly_chart(
+    fig_indo,
+    use_container_width=True
+)
+
+st.subheader("Jumlah Indikator Muncul - Word2Vec")
+
+w2v_labels = [
+    'Indikator 1','Indikator 2','Indikator 3','Indikator 6','Indikator 9',
+    'Indikator 10','Indikator 11','Indikator 12','Indikator 13','Indikator 14',
+    'Indikator 15','Indikator 16','Indikator 17','Indikator 19','Indikator 20',
+    'Indikator 21','Indikator 22','Indikator 24','Indikator 25','Indikator 28',
+    'Indikator 29','Indikator 30','Indikator 32','Indikator 33','Indikator 35',
+    'Indikator 37','Indikator 38','Indikator 39','Indikator 40','Indikator 41',
+    'Indikator 43','Indikator 44','Indikator 45','Indikator 46','Indikator 47',
+    'Indikator 48','Indikator 49','Indikator 50','Indikator 52','Indikator 53',
+    'Indikator 54','Indikator 55','Indikator 56','Indikator 57','Indikator 58',
+    'Indikator 60','Indikator 61'
+]
+
+w2v_data = [
+    10,28,2,2,5,6,70,79,1,8,2,6,25,10,4,12,15,14,7,
+    24,29,9,1,3,4,13,6,6,25,2,1,1,3,1,6,44,18,4,4,5,44,
+    9,10,1,4,4,5
+]
+
+df_w2v_chart = pd.DataFrame({
+    "Indikator": w2v_labels,
+    "Jumlah": w2v_data
+})
+
+fig_w2v = px.bar(
+    df_w2v_chart,
+    x="Indikator",
+    y="Jumlah",
+    text="Jumlah",
+    title="Grafik Word2Vec",
+    color_discrete_sequence=["#36A2EB"]
+)
+
+fig_w2v.update_layout(
+    height=700,
+    xaxis_tickangle=-90
+)
+
+st.plotly_chart(
+    fig_w2v,
+    use_container_width=True
+)
+
+st.divider()
+
+# Tabel 5 Indikator Terbanyak IndoBERT
+st.subheader("🔥 5 Indikator Terbanyak IndoBERT")
+
+df_top_indo = pd.DataFrame({
+    "No":[1,2,3,4,5],
+    "Indikator":[
+        "Adanya dokumen palsu dalam proses pencalonan di Pemilu dan Pilkada",
+        "Adanya Rekomendasi Bawaslu terkait ketidaknetralan ASN/TNI/POLRI",
+        "Adanya rekomendasi Bawaslu terkait perubahan suara pada rekapitulasi suara",
+        "Adanya penghitungan suara ulang di Pemilu/Pilkada",
+        "Adanya materi kampanye Hoax di tempat umum"
+    ],
+    "Jumlah":[124,120,64,40,30]
+})
+
+st.dataframe(
+    df_top_indo,
+    use_container_width=True
+)
+
+st.divider()
+
+# Tabel 5 Indikator Terbanyak Word2Vec
+st.subheader("🔥 5 Indikator Terbanyak Word2Vec")
+
+df_top_w2v = pd.DataFrame({
+    "No":[1,2,3,4,5],
+    "Indikator":[
+        "Adanya TPS yang tidak dihadiri oleh Pengawas TPS pada Pemilu/Pilkada",
+        "Adanya logistik berupa surat suara pemungutan suara yang tertukar",
+        "Adanya laporan Politik Uang oleh Peserta/Tim Kampanye",
+        "Adanya Putusan Bawaslu yang tidak ditindaklanjuti KPU",
+        "Adanya informasi pelanggaran saat pemungutan suara"
+    ],
+    "Jumlah":[139,91,50,47,35]
+})
+
+st.dataframe(
+    df_top_w2v,
+    use_container_width=True
+)
+
+st.divider()
+
+# Tabel 5 Indikator Terbanyak pada IndoBERT dan Jumlahnya pada Word2Vec
+st.subheader(
+    "📊 5 Indikator Terbanyak pada IndoBERT dan Jumlahnya pada Word2Vec"
+)
+
+df_compare_indo = pd.DataFrame({
+    "Indikator":[
+        "Dokumen palsu pencalonan",
+        "Ketidaknetralan ASN/TNI/POLRI",
+        "Perubahan suara rekapitulasi",
+        "Penghitungan suara ulang",
+        "Kampanye Hoax"
+    ],
+    "IndoBERT":[124,120,64,40,30],
+    "Word2Vec":[4,7,7,1,0]
+})
+
+st.dataframe(
+    df_compare_indo,
+    use_container_width=True
+)
+
+st.divider()
+
+# Tabel 5 Indikator Terbanyak pada Word2Vec dan Jumlahnya pada IndoBERT
+st.subheader(
+    "📊 5 Indikator Terbanyak pada Word2Vec dan Jumlahnya pada IndoBERT"
+)
+
+df_compare_w2v = pd.DataFrame({
+    "Indikator":[
+        "TPS tanpa Pengawas",
+        "Surat suara tertukar",
+        "Politik uang",
+        "Putusan Bawaslu tidak ditindaklanjuti",
+        "Pelanggaran saat pemungutan suara"
+    ],
+    "Word2Vec":[139,91,50,47,35],
+    "IndoBERT":[0,4,3,0,1]
+})
+
+st.dataframe(
+    df_compare_w2v,
+    use_container_width=True
+)
+
+st.divider()
+
+# Tabel Confusion Matrix
+st.subheader("🧠 Tabel Confusion Matrix")
+
+cm_df = pd.DataFrame({
+    "Metric": ["TP", "TN", "FP", "FN"],
+    "IndoBERT": [60, 109, 59, 12],
+    "Word2Vec": [70, 104, 49, 17]
+})
+
+st.dataframe(
+    cm_df,
+    use_container_width=True,
+    hide_index=True
+)
+
+st.divider()
+
+# Evaluasi Model IndoBERT
+st.subheader("📊 Evaluasi Model IndoBERT")
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        label="Accuracy",
+        value="70.4%"
+    )
+
+with col2:
+    st.metric(
+        label="Recall",
+        value="83.3%"
+    )
+
+with col3:
+    st.metric(
+        label="Precision",
+        value="50.4%"
+    )
+
+with col4:
+    st.metric(
+        label="F1 Score",
+        value="62.6%"
+    )
+
+st.divider()
+
+# Evaluasi Model Word2Vec
+st.subheader("📊 Evaluasi Model Word2Vec")
+
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    st.metric(
+        label="Accuracy",
+        value="72.5%"
+    )
+
+with col2:
+    st.metric(
+        label="Recall",
+        value="80.4%"
+    )
+
+with col3:
+    st.metric(
+        label="Precision",
+        value="58.8%"
+    )
+
+with col4:
+    st.metric(
+        label="F1 Score",
+        value="67.8%"
+    )
+
+st.divider()
+
+# Tabel Data
+st.subheader("Data Word2Vec")
+
+st.dataframe(df_w2v)
+
+
+st.subheader("Data IndoBERT")
+
+st.dataframe(df_bert)
